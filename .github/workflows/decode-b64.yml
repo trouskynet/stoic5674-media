@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - '**.b64'
+      - '**.b64.part*'
       - '.github/workflows/decode-b64.yml'
   workflow_dispatch:
 permissions:
@@ -12,16 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Decode all .b64 files to binary
+      - name: Reassemble parts and decode
         run: |
           set -euo pipefail
+          find . -type f -name '*.b64.part000' -print0 | while IFS= read -r -d '' first; do
+            base="${first%.part000}"
+            echo "Reassembling $base"
+            cat "$base".part* > "$base"
+            rm -f "$base".part*
+          done
           count=0
           while IFS= read -r -d '' f; do
             out="${f%.b64}"
             mkdir -p "$(dirname "$out")"
             base64 -d < "$f" > "$out"
             rm -f "$f"
-            echo "decoded $f -> $out"
+            echo "decoded $f -> $out ($(wc -c < "$out") bytes)"
             count=$((count+1))
           done < <(find . -type f -name '*.b64' -print0)
           echo "decoded_count=$count"
@@ -32,5 +39,6 @@ jobs:
           git config user.name "trouskynet"
           git config user.email "josh@troubadourep.com"
           git add -A
+          git status
           git commit -m "Decode base64 media to binary assets"
           git push
