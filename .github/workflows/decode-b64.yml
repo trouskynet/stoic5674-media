@@ -1,0 +1,36 @@
+name: Decode b64 media
+on:
+  push:
+    paths:
+      - '**.b64'
+      - '.github/workflows/decode-b64.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode all .b64 files to binary
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' f; do
+            out="${f%.b64}"
+            mkdir -p "$(dirname "$out")"
+            base64 -d < "$f" > "$out"
+            rm -f "$f"
+            echo "decoded $f -> $out"
+            count=$((count+1))
+          done < <(find . -type f -name '*.b64' -print0)
+          echo "decoded_count=$count"
+          if [ "$count" -eq 0 ]; then
+            echo "Nothing to decode"
+            exit 0
+          fi
+          git config user.name "trouskynet"
+          git config user.email "josh@troubadourep.com"
+          git add -A
+          git commit -m "Decode base64 media to binary assets"
+          git push
